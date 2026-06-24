@@ -1,3 +1,4 @@
+import argparse
 import logging
 import multiprocessing
 import signal
@@ -24,12 +25,12 @@ def _setup_logger(camera: str) -> logging.Logger:
     return logger
 
 
-def monitor_camera(camera: str, rtsp_url: str) -> None:
+def monitor_camera(camera: str, rtsp_url: str, model_path: str = "models/yolo11n.pt", eof_is_error: bool = True, display: bool = True) -> None:
     """Run person detection on one camera stream indefinitely."""
     logger = _setup_logger(camera)
     logger.info("Camera process started (url=%s)", rtsp_url)
 
-    model = YOLO("yolo11n.pt")
+    model = YOLO(model_path)
     cap = cv2.VideoCapture(rtsp_url)
 
     if not cap.isOpened():
@@ -39,6 +40,8 @@ def monitor_camera(camera: str, rtsp_url: str) -> None:
     def _shutdown(sig, frame):  # noqa: ANN001
         logger.info("Camera process shutting down")
         cap.release()
+        if display:
+            cv2.destroyWindow(camera)
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, _shutdown)
@@ -48,36 +51,54 @@ def monitor_camera(camera: str, rtsp_url: str) -> None:
         while True:
             ret, frame = cap.read()
             if not ret:
-                logger.warning("Frame read failed — stream may have dropped")
+                if eof_is_error:
+                    logger.warning("Frame read failed — stream may have dropped")
+                else:
+                    logger.info("End of video file")
                 break
 
             results = model(frame, verbose=False)
 
-            person_detected = any(
-                int(box.cls[0]) == 0
-                for result in results
-                for box in result.boxes
-            )
+            person_detected = False
+            for result in results:
+                for box in result.boxes:
+                    if int(box.cls[0]) == 0:
+                        person_detected = True
+                        if display:
+                            x1, y1, x2, y2 = map(int, box.xyxy[0])
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                            cv2.putText(frame, "person", (x1, y1 - 8),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+            if display:
+                cv2.imshow(camera, frame)
+                cv2.waitKey(1)
 
             if person_detected:
                 logger.warning("PERSON IN FOV — simulating red-light alert")
 
     finally:
         cap.release()
+        if display:
+            cv2.destroyWindow(camera)
         logger.info("Camera process stopped")
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Run person detection on live camera streams.")
+    parser.add_argument("--model", default="models/yolo11n.pt", help="Path to YOLO model weights")
+    args = parser.parse_args()
+
     processes = [
         multiprocessing.Process(
             target=monitor_camera,
-            args=("left-camera", LEFT_CAMERA_URL),
+            args=("left-camera", LEFT_CAMERA_URL, args.model),
             name="left-camera",
             daemon=True,
         ),
         multiprocessing.Process(
             target=monitor_camera,
-            args=("right-camera", RIGHT_CAMERA_URL),
+            args=("right-camera", RIGHT_CAMERA_URL, args.model),
             name="right-camera",
             daemon=True,
         ),
