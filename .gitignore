@@ -11,5 +11,5 @@ wheels/
 
 # Other
 .env
-models/
+#models/
 *.log
