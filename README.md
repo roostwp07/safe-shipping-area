@@ -1,5 +1,13 @@
 # Safe Shipping Area
 
+## Setup
+
+```bash
+cp .env.example .env   # then fill in your RTSP credentials
+uv sync
+uv run main.py
+```
+
 ## Project Structure
 
 ```text

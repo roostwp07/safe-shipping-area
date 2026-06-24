@@ -10,5 +10,6 @@ wheels/
 .venv
 
 # Other
+.env
 models/
 *.log

@@ -1,14 +1,18 @@
 import argparse
 import logging
 import multiprocessing
+import os
 import signal
 import sys
 
 import cv2
+from dotenv import load_dotenv
 from ultralytics import YOLO
 
-LEFT_CAMERA_URL = "rtsp://user1:M%40rtinrea2025@10.112.16.150/ch1/0"
-RIGHT_CAMERA_URL = "rtsp://user1:M%40rtinrea2025@10.112.16.151/ch1/0"
+load_dotenv()
+
+LEFT_CAMERA_URL = os.environ["LEFT_CAMERA_URL"]
+RIGHT_CAMERA_URL = os.environ["RIGHT_CAMERA_URL"]
 
 LOG_FILE = "safety.log"
 
