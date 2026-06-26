@@ -43,9 +43,6 @@ def monitor_camera(camera: str, rtsp_url: str, model_path: str = "models/yolo11n
 
     def _shutdown(sig, frame):  # noqa: ANN001
         logger.info("Camera process shutting down")
-        cap.release()
-        if display:
-            cv2.destroyWindow(camera)
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, _shutdown)
@@ -84,7 +81,10 @@ def monitor_camera(camera: str, rtsp_url: str, model_path: str = "models/yolo11n
     finally:
         cap.release()
         if display:
-            cv2.destroyWindow(camera)
+            try:
+                cv2.destroyWindow(camera)
+            except cv2.error:
+                pass
         logger.info("Camera process stopped")
 
 
