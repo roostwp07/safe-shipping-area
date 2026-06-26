@@ -25,6 +25,22 @@ uv sync
 uv run main.py
 ```
 
+## Testing with local video files
+
+Run detection against the MP4 files in the `videos/` directory instead of live RTSP streams:
+
+```bash
+uv run tests/test_detection.py --left-video videos/left.mp4 --right-video videos/right.mp4
+```
+
+Use `--model` to specify a different set of weights (defaults to `models/yolo11n.pt`):
+
+```bash
+uv run tests/test_detection.py --left-video videos/left.mp4 --right-video videos/right.mp4 --model models/yolo11s.pt
+```
+
+Detection output is written to `safety.log`. Press `Ctrl+C` to stop early.
+
 ## Project Structure
 
 ```text
