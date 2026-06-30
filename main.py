@@ -39,7 +39,7 @@ def _setup_logger(camera: str) -> logging.Logger:
 
 
 def _annotate(frame, results, flagged_ids: set[int]) -> None:
-    CLASS_COLORS = {0: (0, 0, 255)}      # person → red
+    CLASS_COLORS = {0: (0, 255, 0)}       # person → green
     FORKLIFT_COLOR = (0, 165, 255)       # forklift → orange
     DANGER_COLOR = (0, 0, 255)
 
