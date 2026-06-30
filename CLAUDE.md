@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A computer vision safety system for the shipping area of a manufacturing plant. Two IP cameras — **left** and **right**, positioned to give full coverage of the area — stream video over RTSP. The system uses YOLOv11 to detect people and forklifts and is intended to warn when a collision risk is detected.
+A computer vision safety system for the shipping area of a manufacturing plant. Two IP cameras — **left** and **right**, positioned to give full coverage of the area — stream video over RTSP. The system uses YOLOv11 with ByteTrack to detect and track people and forklifts, and triggers an alert when their trajectories indicate an imminent collision.
 
-**Version 1 (current):** validates that the YOLO model can reliably detect people. A warning is logged to `safety.log` every time a person appears in either camera's field of view, simulating the red-light alert that will be wired to physical hardware in a later version.
+**Version 1:** logged a warning every time a person appeared in the FOV, simulating the red-light alert.
 
-**Planned (v2+):** detect forklifts alongside pedestrians, compute direction vectors for each, and trigger the alert only when trajectories indicate an imminent collision.
+**Version 2 (current):** full collision risk detection. Each frame, velocity vectors are computed per tracked object via a Kalman-filtered position history. For every (forklift, person) pair, time-to-closest-approach is computed; if it falls below `TTC_THRESHOLD` seconds and the predicted closest distance falls below `SAFETY_RADIUS`, a `WARNING` is logged and the bounding boxes are highlighted red.
+
+**Planned:** perspective transform calibration per camera (see `tracker.py: ViewTransformer`) to convert pixel distances to real-world meters, enabling accurate TTC in seconds and distance in meters instead of pixel units.
 
 ## Architecture
 
@@ -23,8 +25,26 @@ main()
 Each process:
 1. Opens the RTSP stream with OpenCV
 2. Reads frames in a tight loop
-3. Runs YOLO inference on every frame
-4. Logs a `WARNING` to `safety.log` when COCO class 0 (person) is detected
+3. Runs `model.track(frame, persist=True)` — YOLO inference + ByteTrack, producing persistent IDs
+4. Feeds results into `ObjectTracker.update()` to maintain per-ID Kalman-filtered positions and velocity history
+5. Calls `CollisionDetector.check()` to evaluate all (forklift, person) pairs
+6. Logs a `WARNING` to `safety.log` for any flagged pair
+
+## Key Files
+
+- **`main.py`** — process entrypoint and frame loop
+- **`tracker.py`** — all tracking and collision logic:
+  - `ViewTransformer` — perspective homography from pixel coords to real-world meters (not yet wired up; requires per-camera floor calibration)
+  - `ObjectTracker` — per-ID Kalman filter (4-state: x, y, vx, vy), rolling velocity history
+  - `CollisionDetector` — time-to-closest-approach check for all (forklift, person) pairs
+  - `DEFAULT_FORKLIFT_CLASSES` — COCO proxies (car, motorcycle, bus, truck) used until a fine-tuned forklift model is available
+
+## Thresholds (tunable in `main.py`)
+
+| Constant | Default | Meaning |
+|---|---|---|
+| `TTC_THRESHOLD` | `3.0` | Flag if time-to-closest-approach is below this many seconds |
+| `SAFETY_RADIUS` | `1.5` | Flag if predicted (or current) separation is below this (meters once calibrated, pixels until then) |
 
 ## Environment Setup
 
@@ -40,7 +60,7 @@ Stop with `Ctrl+C` — both child processes are terminated cleanly.
 ## Key Details
 
 - **Model**: `yolo11n.pt` (nano variant, downloaded automatically by Ultralytics on first run)
-- **COCO class 0** = person — the only class checked in v1
+- **Forklift classes**: COCO proxies until fine-tuned — set `DEFAULT_FORKLIFT_CLASSES` in `tracker.py` or pass a custom `frozenset` to `ObjectTracker`
 - **Logging**: all output goes to `safety.log` (not stdout); format is `timestamp  camera-name  level  message`
-- **Camera URLs**: `LEFT_CAMERA_URL` / `RIGHT_CAMERA_URL` constants at the top of `main.py`
+- **Camera URLs**: read from `.env` as `LEFT_CAMERA_URL` / `RIGHT_CAMERA_URL`
 - Child processes are `daemon=True` so they die automatically if the parent is killed unexpectedly
