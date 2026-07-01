@@ -11,5 +11,8 @@ wheels/
 
 # Other
 .env
-#models/
+datasets/
+models/
+synthetic_data/
+videos/
 *.log
