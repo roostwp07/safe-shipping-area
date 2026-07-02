@@ -1,9 +1,13 @@
 import argparse
 import logging
+import logging.handlers
 import multiprocessing
 import os
 import signal
 import sys
+import time
+
+from datetime import date
 
 import cv2
 from dotenv import load_dotenv
@@ -16,7 +20,9 @@ load_dotenv()
 LEFT_CAMERA_URL = os.environ["LEFT_CAMERA_URL"]
 RIGHT_CAMERA_URL = os.environ["RIGHT_CAMERA_URL"]
 
-LOG_FILE = "safety.log"
+LOG_DIR = "log"
+_LOG_MAX_BYTES = 5 * 1024 * 1024   # 5 MB per file
+_LOG_BACKUP_COUNT = 5               # keep up to 5 rotated files per day
 
 # Tunable thresholds — set in real-world meters once perspective calibration is done,
 # or in pixels until then.
@@ -30,7 +36,13 @@ def _setup_logger(camera: str) -> logging.Logger:
     logger = logging.getLogger(camera)
     logger.setLevel(logging.INFO)
     if not logger.handlers:
-        handler = logging.FileHandler(LOG_FILE)
+        day_dir = os.path.join(LOG_DIR, date.today().isoformat())
+        os.makedirs(day_dir, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(
+            os.path.join(day_dir, "safety.log"),
+            maxBytes=_LOG_MAX_BYTES,
+            backupCount=_LOG_BACKUP_COUNT,
+        )
         handler.setFormatter(
             logging.Formatter("%(asctime)s  %(name)s  %(levelname)s  %(message)s")
         )

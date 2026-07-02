@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Local Claude instructions
+CLAUDE.local.md
+
 # Other
 .env
 datasets/
