@@ -1,3 +1,8 @@
+"""
+Pre-flight check for both camera streams. Attempts to open each stream and read
+one frame, distinguishing between a connection failure and a read failure.
+"""
+
 import os
 import sys
 

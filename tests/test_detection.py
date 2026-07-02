@@ -1,3 +1,8 @@
+"""
+Runs the detection pipeline against local video files in place of live RTSP streams.
+Useful for testing. Pass --left-video and --right-video to specify footage paths.
+"""
+
 import argparse
 import multiprocessing
 import sys
